@@ -314,6 +314,14 @@
         `;
         ul.appendChild(li);
       });
+        // Mostrar total
+  const total = carrito.reduce((acc, p) => acc + p.Precio * p.cantidad, 0);
+  const totalLi = document.createElement("li");
+  totalLi.style.fontWeight = "bold";
+  totalLi.style.borderTop = "1px solid #ccc";
+  totalLi.style.paddingTop = "8px";
+  totalLi.innerHTML = `<span>Total:</span><span>$ ${total.toFixed(2)}</span>`;
+  ul.appendChild(totalLi);
     }
 
     function enviarPedido() {
