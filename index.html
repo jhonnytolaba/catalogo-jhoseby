@@ -201,7 +201,7 @@
 
   <script>
     const urlProductos = "https://opensheet.elk.sh/1ACt8W6my4lA7pCWvgNEUjoQxhdcUpn9OlOLlGO6AFb4/Productos";
-    const urlAppScript = "https://script.google.com/macros/s/AKfycbyHetpPdX4mVv1JGSbRIgePNHfI_WfU_Bm9lKLAnf4L1Vlvq67MkmlNfga1VNodUr49bQ/exec";
+    const urlAppScript = "https://script.google.com/macros/s/AKfycbzlxjbGIWS9FXYp-5CDS8KnTQwYnoqHbgY88gx0zGaUlbz-lOyCscUgtFFLAC2DtQwFvA/exec";
     const numeroWhatsApp = "5493886535151";
 
     let carrito = [];
@@ -281,21 +281,21 @@
         const subtotal = p.Precio * p.cantidad;
         total += subtotal;
         const li = document.createElement("li");
-        li.innerHTML = `<span>${p.Codigo} - ${p.Descripcion} x${p.cantidad}</span><span>$ ${subtotal.toFixed(2)} <button onclick="quitarUnidad(${i})">-</button></span>`;
+        li.innerHTML = `<span>${p.Codigo} - ${p.Descripcion} x${p.cantidad}</span><span>$ ${Math.round(subtotal)} <button onclick="quitarUnidad(${i})">-</button></span>`;
         ul.appendChild(li);
       });
       const totalLi = document.createElement("li");
       totalLi.style.fontWeight = "bold";
       totalLi.style.borderTop = "1px solid #ccc";
       totalLi.style.paddingTop = "8px";
-      totalLi.innerHTML = `<span>Total:</span><span>$ ${total.toFixed(2)}</span>`;
+      totalLi.innerHTML = `<span>Total:</span><span>$ ${Math.round(total)}</span>`;
       ul.appendChild(totalLi);
 
       let totalAjustado = total;
       if (metodoPagoSeleccionado === "Contado") totalAjustado *= 0.92;
       else if (metodoPagoSeleccionado === "Crédito") totalAjustado *= 1.12;
 
-      document.getElementById("total-ajustado").textContent = `Total (${metodoPagoSeleccionado}): $ ${totalAjustado.toFixed(2)}`;
+      document.getElementById("total-ajustado").textContent = `Total (${metodoPagoSeleccionado}): $ ${Math.round(totalAjustado)}`;
     }
 
     function enviarPedido() {
@@ -310,7 +310,7 @@
         Descripcion: p.Descripcion,
         Precio: p.Precio,
         Cantidad: p.cantidad,
-        Sub_Total: (p.Precio * p.cantidad).toFixed(2),
+        Sub_Total: Math.round(p.Precio * p.cantidad),
         Tipo_Movimiento: "Egresos"
       }));
       const total = productos.reduce((sum, p) => sum + parseFloat(p.Sub_Total), 0);
@@ -337,9 +337,9 @@
 
       let mensaje = `🏍 *Nuevo Pedido - Mueblería Jhoseby*%0A👤 Cliente: ${nombreCliente}%0A`;
       productos.forEach(p => {
-        mensaje += `🔹 ${p.Codigo} - ${p.Cantidad} x $ ${p.Precio.toFixed(2)} = $ ${p.Sub_Total}%0A`;
+        mensaje += `🔹 ${p.Codigo} - ${p.Cantidad} x $ ${Math.round(p.Precio)} = $ ${p.Sub_Total}%0A`;
       });
-      mensaje += `📋 *Total (${metodoPagoSeleccionado}): $ ${totalAjustado.toFixed(2)}*%0A🗓 ${fecha}`;
+      mensaje += `📋 *Total (${metodoPagoSeleccionado}): $ ${Math.round(totalAjustado)}*%0A🗓 ${fecha}`;
       window.open(`https://wa.me/${numeroWhatsApp}?text=${mensaje}`, "_blank");
 
       carrito = [];
