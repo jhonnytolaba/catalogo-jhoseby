@@ -143,7 +143,7 @@
       font-size: 12px;
       cursor: pointer;
     }
-    input[type="text"] {
+    input[type="text"], input[type="number"]  {
       width: 100%;
       padding: 10px;
       margin-top: 5px;
@@ -164,6 +164,22 @@
     }
     #enviarBtn:hover {
       background-color: var(--azul-oscuro);
+    }
+    #enviarBtn:disabled {
+      background-color: #b5cde6;
+      cursor: not-allowed;
+      opacity: 0.75;
+    }
+    .mensaje-adelanto {
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    .mensaje-adelanto.error { color: var(--rojo); }
+    .mensaje-adelanto.ok { color: var(--verde-oscuro); }
+    .nota-fija {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 6px;
     }
     @media (max-width: 768px) {
       #carrito-container {
@@ -187,7 +203,6 @@
       overflow: auto;
       background-color: rgba(0,0,0,0.9);
     }
-    
     .modal-imagen-contenido {
       position: relative;
       margin: 5% auto;
@@ -195,7 +210,6 @@
       max-width: 800px;
       text-align: center;
     }
-    
     .modal-imagen img {
       width: 100%;
       max-height: 80vh;
@@ -203,7 +217,6 @@
       border-radius: 10px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
-    
     .modal-imagen-info {
       background-color: white;
       color: #333;
@@ -212,12 +225,10 @@
       border-radius: 10px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
-    
     body.dark-mode .modal-imagen-info {
       background-color: #2b2b2b;
       color: #eee;
     }
-    
     .cerrar-imagen {
       position: absolute;
       top: -40px;
@@ -235,17 +246,14 @@
       justify-content: center;
       transition: background-color 0.3s;
     }
-    
     .cerrar-imagen:hover {
       background-color: var(--rojo);
     }
-    
     @media (max-width: 768px) {
       .modal-imagen-contenido {
         margin: 2% auto;
         width: 95%;
       }
-      
       .cerrar-imagen {
         top: -35px;
         right: 5px;
@@ -260,7 +268,6 @@
   <header>
     <h1>Catálogo Mueblería Jhoseby</h1>
     <button id="toggle-theme">🌙 Modo Oscuro</button>
-
   </header>
 
   <div class="catalogo" id="catalogo"></div>
@@ -281,10 +288,10 @@
     <div id="total-ajustado" style="font-weight:bold; margin-bottom: 12px;">Total: $ 0.00</div>
 
     <input type="text" id="cliente" placeholder="Nombre del cliente" />
-    <button id="enviarBtn" onclick="enviarPedido()">Enviar Pedido</button>
+    <input type="number" id="adelanto" placeholder="Seña" />
+    <div id="mensajeAdelanto" class="mensaje-adelanto error">La seña debe ser al menos $100000 para poder realizar el pedido.</div>
+    <button id="enviarBtn" onclick="enviarPedido()" disabled>Enviar Pedido</button>
   </div>
-
-
 
   <!-- MODAL PARA IMÁGENES DE PRODUCTOS -->
   <div id="modalImagen" class="modal-imagen">
@@ -400,11 +407,41 @@
 
       document.getElementById("total-ajustado").textContent = `Total (${metodoPagoSeleccionado}): $ ${Math.round(totalAjustado)}`;
     }
+    // VALIDACIÓN EN TIEMPO REAL DE LA SEÑA
+    const SEÑA_MINIMA = 100000;
+    const adelantoInput = document.getElementById("adelanto");
+    const mensajeAdelanto = document.getElementById("mensajeAdelanto");
+    const enviarBtn = document.getElementById("enviarBtn");
+
+    function validarAdelanto() {
+      const valor = parseFloat(adelantoInput.value);
+      // considerar NaN o vacío como 0 -> inválido
+      if (isNaN(valor) || valor < SEÑA_MINIMA) {
+        mensajeAdelanto.classList.remove("ok");
+        mensajeAdelanto.classList.add("error");
+        mensajeAdelanto.textContent = `La seña debe ser al menos $${SEÑA_MINIMA.toLocaleString('es-AR')} para poder realizar el pedido.`;
+        enviarBtn.disabled = true;
+        return false;
+      } else {
+        mensajeAdelanto.classList.remove("error");
+        mensajeAdelanto.classList.add("ok");
+        mensajeAdelanto.textContent = `Seña válida: $${Math.round(valor)} — puedes realizar el pedido.`;
+        enviarBtn.disabled = false;
+        return true;
+      }
+    }
+
+    // validar en cada cambio y al cargar
+    adelantoInput.addEventListener("input", validarAdelanto);
+    // inicial
+    validarAdelanto();
 
     function enviarPedido() {
       if (carrito.length === 0) return alert("El carrito está vacío.");
       const nombreCliente = document.getElementById("cliente").value.trim();
+      const adelantoCliente = document.getElementById("adelanto").value.trim();
       if (!nombreCliente) return alert("Por favor, ingresa el nombre del cliente.");
+      if (!adelantoCliente) return alert("Por favor, ingresa la Seña.");
 
       const fecha = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
       const productos = carrito.map(p => ({
@@ -424,13 +461,12 @@
       const datos = {
         nombre: nombreCliente,
         metodo_pago: metodoPagoSeleccionado,
-        seña: "1000",
-        deuda: "",
-        fecha_vencimiento: "31/12/2025",
-        estado: "Pendiente",
+        adelanto: adelantoCliente,
+        //deuda: "",
         productos
       };
 
+      // Envío a Google Apps Script (no-cors)
       fetch(urlAppScript, {
         method: "POST",
         mode: "no-cors",
@@ -438,7 +474,7 @@
         body: JSON.stringify(datos)
       });
 
-      let mensaje = `🏍 *Nuevo Pedido - Mueblería Jhoseby*%0A👤 Cliente: ${nombreCliente}%0A`;
+      let mensaje = `🪑 *Nuevo Pedido - Mueblería Jhoseby*%0A👤 Cliente: ${nombreCliente}%0A💰 Seña: $ ${adelantoCliente}%0A`;
       productos.forEach(p => {
         mensaje += `🔹 ${p.Codigo} - ${p.Cantidad} x $ ${Math.round(p.Precio)} = $ ${p.Sub_Total}%0A`;
       });
@@ -448,6 +484,7 @@
       carrito = [];
       renderizarCarrito();
       document.getElementById("cliente").value = "";
+      document.getElementById("adelanto").value = "";
       alert("✅ Pedido enviado y registrado.");
     }
 
