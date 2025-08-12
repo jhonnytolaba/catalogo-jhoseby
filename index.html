@@ -119,8 +119,11 @@
       background-color: #2b2b2b;
     }
     #carrito-container h2 {
-      margin-top: 0;
-      margin-bottom: 12px;
+      margin: 0 0 20px;
+      font-size: 1.4rem;
+      color: var(--verde);
+      border-bottom: 2px solid var(--verde);
+      padding-bottom: 10px;
     }
     #carrito {
       list-style: none;
@@ -273,13 +276,13 @@
   <div class="catalogo" id="catalogo"></div>
 
   <div id="carrito-container">
-    <h2>🛒 Carrito</h2>
+    <h2>🛒 Carrito de Compras</h2>
     <ul id="carrito"></ul>
 
     <!-- Opciones de método de pago -->
     <div id="metodo-pago" style="margin-bottom: 12px;">
       <strong>Seleccione el Método de Pago:</strong><br>
-      <label><input type="radio" name="pago" value="Contado" checked> Contado</label>
+      <label><input type="radio" name="pago" value="Efectivo" checked> Efectivo</label>
       <label><input type="radio" name="pago" value="Transferencia"> Transferencia</label>
       <label><input type="radio" name="pago" value="Crédito"> Crédito</label>
     </div>
@@ -289,7 +292,7 @@
 
     <input type="text" id="cliente" placeholder="Nombre del cliente" />
     <input type="number" id="adelanto" placeholder="Seña" />
-    <div id="mensajeAdelanto" class="mensaje-adelanto error">La seña debe ser al menos $100000 para poder realizar el pedido.</div>
+    <div id="mensajeAdelanto" class="mensaje-adelanto error">Para realizar el pedido trabajamos con una seña mínimo de $100.000 El tiempo de entrega es de 20 a 30 días.</div>
     <button id="enviarBtn" onclick="enviarPedido()" disabled>Enviar Pedido</button>
   </div>
 
@@ -308,12 +311,15 @@
 
   <script>
     const urlProductos = "https://opensheet.elk.sh/1ACt8W6my4lA7pCWvgNEUjoQxhdcUpn9OlOLlGO6AFb4/Productos";
-    const urlAppScript = "https://script.google.com/macros/s/AKfycbzlxjbGIWS9FXYp-5CDS8KnTQwYnoqHbgY88gx0zGaUlbz-lOyCscUgtFFLAC2DtQwFvA/exec";
+    // Nueva URL para obtener las ventas y determinar el próximo ID
+    const urlVentas = "https://opensheet.elk.sh/1ACt8W6my4lA7pCWvgNEUjoQxhdcUpn9OlOLlGO6AFb4/Ventas";
+    const urlAppScript = "https://script.google.com/macros/s/AKfycbxZ3n7BjXBvbHF6-7jEzNpmWUldyWAEe_9OytuYzSpyzBHGSFzPPtopa_LzPJUREoXf_g/exec";
     const numeroWhatsApp = "5493886535151";
 
     let carrito = [];
     let productosData = [];
-    let metodoPagoSeleccionado = "Contado";
+    let metodoPagoSeleccionado = "Efectivo";
+    let proximoIdVenta = "V-0001"; // Valor por defecto
 
     const body = document.body;
     const themeToggle = document.getElementById("toggle-theme");
@@ -332,28 +338,76 @@
       localStorage.setItem("theme", mode);
     }
 
-    fetch(urlProductos)
-      .then(res => res.json())
-      .then(data => {
-        productosData = data;
-        const catalogo = document.getElementById("catalogo");
-        data.forEach((producto, index) => {
-          const div = document.createElement("div");
-          div.className = "producto";
-          div.setAttribute("data-id", producto.Id_Producto);
-          div.innerHTML = `
-            <img src="${producto.Imagen_URL}" 
-                 alt="${producto.Codigo}" 
-                 onclick="abrirModalImagen('${producto.Imagen_URL}', '${producto.Descripcion}', '${producto.Precio_Venta}', '${producto.Stock_Actual}')"
-                 title="Clic para ampliar imagen">
-            <h3>${producto.Descripcion}</h3>
-            <p>$ ${producto.Precio_Venta}</p>
-            <p class="stock">Stock Disponible: <span id="stock-${index}">${producto.Stock_Actual}</span></p>
-            <button onclick='agregarAlCarrito(${index})'>Agregar</button>
-          `;
-          catalogo.appendChild(div);
-        });
+    // Función para obtener el próximo ID de venta
+    async function obtenerProximoIdVenta() {
+      try {
+        const response = await fetch(urlVentas);
+        const ventas = await response.json();
+        
+        if (!ventas || ventas.length === 0) {
+          return "V-0001";
+        }
+
+        // Filtrar solo los IDs que siguen el patrón V-XXXX
+        const idsValidos = ventas
+          .map(venta => venta.Id_Venta)
+          .filter(id => id && id.startsWith('V-') && id.length === 6)
+          .map(id => parseInt(id.substring(2))) // Extraer el número después de "V-"
+          .filter(num => !isNaN(num)); // Filtrar números válidos
+
+        if (idsValidos.length === 0) {
+          return "V-0001";
+        }
+
+        // Encontrar el máximo número y sumar 1
+        const maxNumero = Math.max(...idsValidos);
+        const siguienteNumero = maxNumero + 1;
+        
+        // Formatear con ceros a la izquierda (4 dígitos)
+        return `V-${siguienteNumero.toString().padStart(4, '0')}`;
+      } catch (error) {
+        console.error('Error al obtener ventas:', error);
+        // En caso de error, usar un ID basado en timestamp para evitar duplicados
+        const timestamp = Date.now().toString().slice(-4);
+        return `V-${timestamp}`;
+      }
+    }
+
+     // Función para generar un ID único
+  function generarUniqueId() {
+    return Math.random().toString(36).substr(2, 8).toLowerCase();
+  }
+
+    // Cargar productos y obtener próximo ID
+    Promise.all([
+      fetch(urlProductos).then(res => res.json()),
+      obtenerProximoIdVenta()
+    ]).then(([productosResponse, idVenta]) => {
+      productosData = productosResponse;
+      proximoIdVenta = idVenta;
+      console.log('Próximo ID de venta:', proximoIdVenta);
+      
+      const catalogo = document.getElementById("catalogo");
+      productosResponse.forEach((producto, index) => {
+        const div = document.createElement("div");
+        div.className = "producto";
+        div.setAttribute("data-id", producto.Id_Producto);
+        div.innerHTML = `
+          <img src="${producto.Imagen_URL}" 
+               alt="${producto.Codigo}" 
+               onclick="abrirModalImagen('${producto.Imagen_URL}', '${producto.Descripcion}', '${producto.Precio_Venta}', '${producto.Stock_Actual}')"
+               title="Clic para ampliar imagen">
+          <h3>${producto.Descripcion}</h3>
+          <p>$ ${producto.Precio_Venta}</p>
+          <p class="stock">Stock Disponible: <span id="stock-${index}">${producto.Stock_Actual}</span></p>
+          <button onclick='agregarAlCarrito(${index})'>Agregar</button>
+        `;
+        catalogo.appendChild(div);
       });
+    }).catch(error => {
+      console.error('Error al cargar datos:', error);
+      alert('Error al cargar los productos. Por favor, recarga la página.');
+    });
 
     document.querySelectorAll('input[name="pago"]').forEach(radio => {
       radio.addEventListener("change", e => {
@@ -402,11 +456,12 @@
       ul.appendChild(totalLi);
 
       let totalAjustado = total;
-      if (metodoPagoSeleccionado === "Contado") totalAjustado *= 0.92;
+      if (metodoPagoSeleccionado === "Efectivo") totalAjustado *= 0.92;
       else if (metodoPagoSeleccionado === "Crédito") totalAjustado *= 1.12;
 
       document.getElementById("total-ajustado").textContent = `Total (${metodoPagoSeleccionado}): $ ${Math.round(totalAjustado)}`;
     }
+
     // VALIDACIÓN EN TIEMPO REAL DE LA SEÑA
     const SEÑA_MINIMA = 100000;
     const adelantoInput = document.getElementById("adelanto");
@@ -415,11 +470,10 @@
 
     function validarAdelanto() {
       const valor = parseFloat(adelantoInput.value);
-      // considerar NaN o vacío como 0 -> inválido
       if (isNaN(valor) || valor < SEÑA_MINIMA) {
         mensajeAdelanto.classList.remove("ok");
         mensajeAdelanto.classList.add("error");
-        mensajeAdelanto.textContent = `La seña debe ser al menos $${SEÑA_MINIMA.toLocaleString('es-AR')} para poder realizar el pedido.`;
+        mensajeAdelanto.textContent = `Para realizar el pedido trabajamos con una seña mínimo de $${SEÑA_MINIMA.toLocaleString('es-AR')} El tiempo de entrega es de 20 a 30 días.`;
         enviarBtn.disabled = true;
         return false;
       } else {
@@ -431,20 +485,23 @@
       }
     }
 
-    // validar en cada cambio y al cargar
     adelantoInput.addEventListener("input", validarAdelanto);
-    // inicial
     validarAdelanto();
 
-    function enviarPedido() {
+    async function enviarPedido() {
       if (carrito.length === 0) return alert("El carrito está vacío.");
       const nombreCliente = document.getElementById("cliente").value.trim();
       const adelantoCliente = document.getElementById("adelanto").value.trim();
       if (!nombreCliente) return alert("Por favor, ingresa el nombre del cliente.");
       if (!adelantoCliente) return alert("Por favor, ingresa la Seña.");
 
+      // Obtener un nuevo ID de venta justo antes de enviar
+      const idVentaActual = await obtenerProximoIdVenta();
+      
       const fecha = new Date().toLocaleString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" });
       const productos = carrito.map(p => ({
+        Id_Detalle: generarUniqueId(),
+        Id_Venta: idVentaActual,
         Id_Producto: p.Id_Producto,
         Codigo: p.Codigo,
         Descripcion: p.Descripcion,
@@ -455,14 +512,14 @@
       }));
       const total = productos.reduce((sum, p) => sum + parseFloat(p.Sub_Total), 0);
       let totalAjustado = total;
-      if (metodoPagoSeleccionado === "Contado") totalAjustado *= 0.92;
+      if (metodoPagoSeleccionado === "Efectivo") totalAjustado *= 0.92;
       else if (metodoPagoSeleccionado === "Crédito") totalAjustado *= 1.12;
 
       const datos = {
+        id_venta: idVentaActual, // Incluir el ID de venta secuencial
         nombre: nombreCliente,
         metodo_pago: metodoPagoSeleccionado,
         adelanto: adelantoCliente,
-        //deuda: "",
         productos
       };
 
@@ -474,7 +531,7 @@
         body: JSON.stringify(datos)
       });
 
-      let mensaje = `🪑 *Nuevo Pedido - Mueblería Jhoseby*%0A👤 Cliente: ${nombreCliente}%0A💰 Seña: $ ${adelantoCliente}%0A`;
+      let mensaje = `🪑 *Nuevo Pedido - Mueblería Jhoseby*%0A🔢 ID Venta: ${idVentaActual}%0A👤 Cliente: ${nombreCliente}%0A💰 Seña: $ ${adelantoCliente}%0A`;
       productos.forEach(p => {
         mensaje += `🔹 ${p.Codigo} - ${p.Cantidad} x $ ${Math.round(p.Precio)} = $ ${p.Sub_Total}%0A`;
       });
@@ -485,7 +542,11 @@
       renderizarCarrito();
       document.getElementById("cliente").value = "";
       document.getElementById("adelanto").value = "";
-      alert("✅ Pedido enviado y registrado.");
+      
+      // Actualizar el próximo ID para la siguiente venta
+      proximoIdVenta = await obtenerProximoIdVenta();
+      
+      alert(`✅ Pedido enviado y registrado con ID: ${idVentaActual}`);
     }
 
     // Funciones para el modal de imágenes
@@ -507,12 +568,10 @@
 
     cerrarModalImagen.onclick = () => modalImagen.style.display = "none";
 
-    // Cerrar modal al hacer clic fuera de él
     window.onclick = e => {
       if (e.target === modalImagen) modalImagen.style.display = "none";
     };
 
-    // Cerrar modal de imagen con la tecla Escape
     document.addEventListener('keydown', e => {
       if (e.key === 'Escape') {
         modalImagen.style.display = "none";
