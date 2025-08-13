@@ -100,6 +100,32 @@
     .producto button:hover {
       background-color: var(--verde-oscuro);
     }
+    .cantidad-carrito {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background-color: var(--rojo);
+      color: white;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 14px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.3s ease;
+    }
+    .cantidad-carrito.visible {
+      opacity: 1;
+      transform: scale(1);
+    }
+    .producto {
+      position: relative;
+    }
     #carrito-container {
       position: fixed;
       top: 80px;
@@ -291,7 +317,7 @@
     <div id="total-ajustado" style="font-weight:bold; margin-bottom: 12px;">Total: $ 0.00</div>
 
     <input type="text" id="cliente" placeholder="Nombre del cliente" />
-    <input type="number" id="adelanto" placeholder="Seña" />
+    <input type="text" id="adelanto" placeholder="Seña" />
     <div id="mensajeAdelanto" class="mensaje-adelanto error">Para realizar el pedido trabajamos con una seña mínimo de $100.000 El tiempo de entrega es de 20 a 30 días.</div>
     <button id="enviarBtn" onclick="enviarPedido()" disabled>Enviar Pedido</button>
   </div>
@@ -304,7 +330,6 @@
       <div class="modal-imagen-info">
         <h3 id="nombreProducto"></h3>
         <p id="precioProducto"></p>
-        <p id="stockProducto"></p>
       </div>
     </div>
   </div>
@@ -393,13 +418,13 @@
         div.className = "producto";
         div.setAttribute("data-id", producto.Id_Producto);
         div.innerHTML = `
+          <div class="cantidad-carrito" id="cantidad-${index}">0</div>
           <img src="${producto.Imagen_URL}" 
                alt="${producto.Codigo}" 
-               onclick="abrirModalImagen('${producto.Imagen_URL}', '${producto.Descripcion}', '${producto.Precio_Venta}', '${producto.Stock_Actual}')"
+               onclick="abrirModalImagen('${producto.Imagen_URL}', '${producto.Descripcion}', '${producto.Precio_Venta}')"
                title="Clic para ampliar imagen">
           <h3>${producto.Descripcion}</h3>
-          <p>$ ${producto.Precio_Venta}</p>
-          <p class="stock">Stock Disponible: <span id="stock-${index}">${producto.Stock_Actual}</span></p>
+          <p>$ ${parseFloat(producto.Precio_Venta).toLocaleString('es-AR')}</p>
           <button onclick='agregarAlCarrito(${index})'>Agregar</button>
         `;
         catalogo.appendChild(div);
@@ -418,23 +443,36 @@
 
     function agregarAlCarrito(index) {
       const producto = productosData[index];
-      if (parseInt(producto.Stock_Actual) <= 0) return alert("Producto sin stock disponible.");
       const existente = carrito.find(p => p.Id_Producto === producto.Id_Producto);
       if (existente) existente.cantidad++;
       else carrito.push({ Id_Producto: producto.Id_Producto, Codigo: producto.Codigo, Descripcion: producto.Descripcion, Precio: parseFloat(producto.Precio_Venta), cantidad: 1 });
-      productosData[index].Stock_Actual--;
-      document.getElementById(`stock-${index}`).textContent = productosData[index].Stock_Actual;
       renderizarCarrito();
+      actualizarIndicadoresCarrito();
     }
 
     function quitarUnidad(index) {
       const producto = carrito[index];
-      const prodIndex = productosData.findIndex(p => p.Id_Producto === producto.Id_Producto);
-      if (prodIndex !== -1) productosData[prodIndex].Stock_Actual++;
-      document.getElementById(`stock-${prodIndex}`).textContent = productosData[prodIndex].Stock_Actual;
       if (producto.cantidad > 1) producto.cantidad--;
       else carrito.splice(index, 1);
       renderizarCarrito();
+      actualizarIndicadoresCarrito();
+    }
+
+    function actualizarIndicadoresCarrito() {
+      // Resetear todos los indicadores
+      productosData.forEach((_, index) => {
+        const indicador = document.getElementById(`cantidad-${index}`);
+        if (indicador) {
+          const productoEnCarrito = carrito.find(p => p.Id_Producto === productosData[index].Id_Producto);
+          if (productoEnCarrito && productoEnCarrito.cantidad > 0) {
+            indicador.textContent = productoEnCarrito.cantidad;
+            indicador.classList.add('visible');
+          } else {
+            indicador.textContent = '0';
+            indicador.classList.remove('visible');
+          }
+        }
+      });
     }
 
     function renderizarCarrito() {
@@ -445,21 +483,21 @@
         const subtotal = p.Precio * p.cantidad;
         total += subtotal;
         const li = document.createElement("li");
-        li.innerHTML = `<span>${p.Codigo} - ${p.Descripcion} x${p.cantidad}</span><span>$ ${Math.round(subtotal)} <button onclick="quitarUnidad(${i})">-</button></span>`;
+        li.innerHTML = `<span>${p.Codigo} - ${p.Descripcion} x${p.cantidad}</span><span>$ ${Math.round(subtotal).toLocaleString('es-AR')} <button onclick="quitarUnidad(${i})">-</button></span>`;
         ul.appendChild(li);
       });
       const totalLi = document.createElement("li");
       totalLi.style.fontWeight = "bold";
       totalLi.style.borderTop = "1px solid #ccc";
       totalLi.style.paddingTop = "8px";
-      totalLi.innerHTML = `<span>Total:</span><span>$ ${Math.round(total)}</span>`;
+      totalLi.innerHTML = `<span>Total:</span><span>$ ${Math.round(total).toLocaleString('es-AR')}</span>`;
       ul.appendChild(totalLi);
 
       let totalAjustado = total;
       if (metodoPagoSeleccionado === "Efectivo") totalAjustado *= 0.92;
       else if (metodoPagoSeleccionado === "Crédito") totalAjustado *= 1.12;
 
-      document.getElementById("total-ajustado").textContent = `Total (${metodoPagoSeleccionado}): $ ${Math.round(totalAjustado)}`;
+      document.getElementById("total-ajustado").textContent = `Total (${metodoPagoSeleccionado}): $ ${Math.round(totalAjustado).toLocaleString('es-AR')}`;
     }
 
     // VALIDACIÓN EN TIEMPO REAL DE LA SEÑA
@@ -468,30 +506,68 @@
     const mensajeAdelanto = document.getElementById("mensajeAdelanto");
     const enviarBtn = document.getElementById("enviarBtn");
 
+    // Función para formatear números con separador de miles
+    function formatearNumero(numero) {
+      return numero.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    // Función para limpiar el formato y obtener solo números
+    function limpiarNumero(texto) {
+      return texto.replace(/\./g, "");
+    }
+
     function validarAdelanto() {
-      const valor = parseFloat(adelantoInput.value);
+      const valorTexto = limpiarNumero(adelantoInput.value);
+      const valor = parseFloat(valorTexto);
+      
       if (isNaN(valor) || valor < SEÑA_MINIMA) {
         mensajeAdelanto.classList.remove("ok");
         mensajeAdelanto.classList.add("error");
-        mensajeAdelanto.textContent = `Para realizar el pedido trabajamos con una seña mínimo de $${SEÑA_MINIMA.toLocaleString('es-AR')} El tiempo de entrega es de 20 a 30 días.`;
+        mensajeAdelanto.textContent = `Para realizar el pedido trabajamos con una seña mínima de ${SEÑA_MINIMA.toLocaleString('es-AR')} El tiempo de entrega es de 20 a 30 días.`;
         enviarBtn.disabled = true;
         return false;
       } else {
         mensajeAdelanto.classList.remove("error");
         mensajeAdelanto.classList.add("ok");
-        mensajeAdelanto.textContent = `Seña válida: $${Math.round(valor)} — puedes realizar el pedido.`;
+        mensajeAdelanto.textContent = `Seña válida: ${Math.round(valor).toLocaleString('es-AR')} — Puedes realizar el pedido.`;
         enviarBtn.disabled = false;
         return true;
       }
     }
 
-    adelantoInput.addEventListener("input", validarAdelanto);
+    // Formatear automáticamente mientras el usuario escribe
+    adelantoInput.addEventListener("input", function(e) {
+      let valor = limpiarNumero(e.target.value);
+      
+      // Solo permitir números
+      valor = valor.replace(/[^0-9]/g, "");
+      
+      if (valor) {
+        // Formatear con separador de miles
+        e.target.value = formatearNumero(valor);
+      }
+      
+      validarAdelanto();
+    });
+
+    // Manejar pegado de texto
+    adelantoInput.addEventListener("paste", function(e) {
+      setTimeout(() => {
+        let valor = limpiarNumero(e.target.value);
+        valor = valor.replace(/[^0-9]/g, "");
+        if (valor) {
+          e.target.value = formatearNumero(valor);
+        }
+        validarAdelanto();
+      }, 10);
+    });
+
     validarAdelanto();
 
     async function enviarPedido() {
       if (carrito.length === 0) return alert("El carrito está vacío.");
       const nombreCliente = document.getElementById("cliente").value.trim();
-      const adelantoCliente = document.getElementById("adelanto").value.trim();
+      const adelantoCliente = limpiarNumero(document.getElementById("adelanto").value.trim());
       if (!nombreCliente) return alert("Por favor, ingresa el nombre del cliente.");
       if (!adelantoCliente) return alert("Por favor, ingresa la Seña.");
 
@@ -533,13 +609,14 @@
 
       let mensaje = `🪑 *Nuevo Pedido - Mueblería Jhoseby*%0A🔢 ID Venta: ${idVentaActual}%0A👤 Cliente: ${nombreCliente}%0A💰 Seña: $ ${adelantoCliente}%0A`;
       productos.forEach(p => {
-        mensaje += `🔹 ${p.Codigo} - ${p.Cantidad} x $ ${Math.round(p.Precio)} = $ ${p.Sub_Total}%0A`;
+        mensaje += `🔹 ${p.Codigo} - ${p.Cantidad} x $ ${Math.round(p.Precio).toLocaleString('es-AR')} = $ ${p.Sub_Total}%0A`;
       });
-      mensaje += `📋 *Total (${metodoPagoSeleccionado}): $ ${Math.round(totalAjustado)}*%0A🗓 ${fecha}`;
+      mensaje += `📋 *Total (${metodoPagoSeleccionado}): $ ${Math.round(totalAjustado).toLocaleString('es-AR')}*%0A🗓 ${fecha}`;
       window.open(`https://wa.me/${numeroWhatsApp}?text=${mensaje}`, "_blank");
 
       carrito = [];
       renderizarCarrito();
+      actualizarIndicadoresCarrito();
       document.getElementById("cliente").value = "";
       document.getElementById("adelanto").value = "";
       
@@ -555,14 +632,12 @@
     const imagenAmpliada = document.getElementById("imagenAmpliada");
     const nombreProducto = document.getElementById("nombreProducto");
     const precioProducto = document.getElementById("precioProducto");
-    const stockProducto = document.getElementById("stockProducto");
 
-    function abrirModalImagen(imagenUrl, descripcion, precio, stock) {
+    function abrirModalImagen(imagenUrl, descripcion, precio) {
       imagenAmpliada.src = imagenUrl;
       imagenAmpliada.alt = descripcion;
       nombreProducto.textContent = descripcion;
       precioProducto.textContent = `Precio: $ ${precio}`;
-      stockProducto.textContent = `Stock disponible: ${stock} unidades`;
       modalImagen.style.display = "block";
     }
 
