@@ -137,6 +137,61 @@
       border-radius: 16px;
       box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
       z-index: 1000;
+      transform: translateX(0);
+      transition: transform 0.3s ease-in-out;
+    }
+    #carrito-container.oculto {
+      transform: translateX(100%);
+    }
+    #toggle-carrito {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background-color: var(--azul-oscuro);
+      color: white;
+      border: none;
+      padding: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 18px;
+      width: 50px;
+      height: 50px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      z-index: 1001;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #toggle-carrito:hover {
+      background-color: var(--azul);
+      transform: scale(1.1);
+    }
+    #toggle-carrito.carrito-visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+    .carrito-contador {
+      position: absolute;
+      top: -5px;
+      right: -5px;
+      background-color: var(--rojo);
+      color: white;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: bold;
+      opacity: 0;
+      transform: scale(0.5);
+      transition: all 0.3s ease;
+    }
+    .carrito-contador.visible {
+      opacity: 1;
+      transform: scale(1);
     }
     body.light-mode #carrito-container {
       background-color: white;
@@ -212,11 +267,20 @@
     }
     @media (max-width: 768px) {
       #carrito-container {
-        position: static;
-        width: 100%;
-        margin: 20px auto;
-        box-shadow: none;
-        max-height: none;
+        position: fixed;
+        top: 80px;
+        right: 10px;
+        width: calc(100vw - 20px);
+        margin: 0;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        max-height: 85vh;
+      }
+      #carrito-container.oculto {
+        transform: translateX(100%);
+      }
+      #toggle-carrito {
+        top: 80px;
+        right: 10px;
       }
     }
     
@@ -301,6 +365,12 @@
 
   <div class="catalogo" id="catalogo"></div>
 
+  <!-- Botón flotante para toggle del carrito -->
+  <button id="toggle-carrito" title="Ocultar Carrito">
+    ➡️
+    <span class="carrito-contador" id="carrito-contador">0</span>
+  </button>
+
   <div id="carrito-container">
     <h2>🛒 Carrito de Compras</h2>
     <ul id="carrito"></ul>
@@ -316,8 +386,8 @@
     <!-- Total ajustado -->
     <div id="total-ajustado" style="font-weight:bold; margin-bottom: 12px;">Total: $ 0.00</div>
 
-    <input type="text" id="cliente" placeholder="Nombre del cliente" />
-    <input type="text" id="adelanto" placeholder="Seña" />
+    <input type="text" id="cliente" placeholder="Nombre Completo del Cliente" />
+    <input type="text" id="adelanto" placeholder="Seña (Monto Minimo $100.000)" />
     <div id="mensajeAdelanto" class="mensaje-adelanto error">Para realizar el pedido trabajamos con una seña mínimo de $100.000 El tiempo de entrega es de 20 a 30 días.</div>
     <button id="enviarBtn" onclick="enviarPedido()" disabled>Enviar Pedido</button>
   </div>
@@ -345,15 +415,38 @@
     let productosData = [];
     let metodoPagoSeleccionado = "Efectivo";
     let proximoIdVenta = "V-0001"; // Valor por defecto
+    let carritoVisible = true; // Estado del carrito
 
     const body = document.body;
     const themeToggle = document.getElementById("toggle-theme");
+    const toggleCarrito = document.getElementById("toggle-carrito");
+    const carritoContainer = document.getElementById("carrito-container");
+    const carritoContador = document.getElementById("carrito-contador");
     const currentTheme = localStorage.getItem("theme") || "light";
     setTheme(currentTheme);
 
     themeToggle.onclick = () => {
       const nuevoTema = body.classList.contains("light-mode") ? "dark" : "light";
       setTheme(nuevoTema);
+    };
+
+    // Función para toggle del carrito
+    toggleCarrito.onclick = () => {
+      carritoVisible = !carritoVisible;
+      if (carritoVisible) {
+        // Mostrar carrito
+        carritoContainer.classList.remove('oculto');
+        toggleCarrito.innerHTML = `➡️<span class="carrito-contador" id="carrito-contador">${carritoContador.textContent}</span>`;
+        toggleCarrito.title = "Ocultar Carrito";
+      } else {
+        // Ocultar carrito
+        carritoContainer.classList.add('oculto');
+        toggleCarrito.innerHTML = `⬅️<span class="carrito-contador" id="carrito-contador">${carritoContador.textContent}</span>`;
+        toggleCarrito.title = "Mostrar Carrito";
+      }
+      // Actualizar referencia al contador después del cambio de innerHTML
+      carritoContador = document.getElementById("carrito-contador");
+      actualizarIndicadoresCarrito();
     };
 
     function setTheme(mode) {
@@ -459,7 +552,20 @@
     }
 
     function actualizarIndicadoresCarrito() {
-      // Resetear todos los indicadores
+      // Actualizar contador del botón flotante
+      const totalItems = carrito.reduce((total, item) => total + item.cantidad, 0);
+      const carritoContadorActual = document.getElementById("carrito-contador");
+      if (carritoContadorActual) {
+        carritoContadorActual.textContent = totalItems;
+        
+        if (totalItems > 0) {
+          carritoContadorActual.classList.add('visible');
+        } else {
+          carritoContadorActual.classList.remove('visible');
+        }
+      }
+
+      // Resetear todos los indicadores de productos
       productosData.forEach((_, index) => {
         const indicador = document.getElementById(`cantidad-${index}`);
         if (indicador) {
